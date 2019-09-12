@@ -1,0 +1,17 @@
+{
+  "name": "test",
+  "passPolicyMinLength": 8,
+  "passPolicyRequireUppercase": true,
+  "passPolicyRequireLowercase": true,
+  "passPolicyRequireNumbers": true,
+  "passPolicyRequireSymbols": true,
+  "verifyEmail": true,
+  "verifySMS": false,
+  "requiredDefaultAttributes": ["email"],
+  "customAttributes": [],
+  "userpoolTags": [],
+  "userPoolClients": [],
+  "allowAdminCreateUserOnly": false,
+  "temporaryPasswordValidityDays": 7,
+  "defaultEmailOption": "CONFIRM_WITH_CODE"
+}
