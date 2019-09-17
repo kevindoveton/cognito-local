@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/go-chi/chi/middleware"
+	"github.com/kevindoveton/cognito-local/cognito"
 	"log"
 	"net/http"
 
@@ -15,18 +18,58 @@ const cassandraKeyspace = "cognito"
 
 func main() {
 	// Set up keyspace and tables
-	setupCassandra()
+	var session = setupCassandra()
 
 	r := chi.NewRouter()
+	r.Use(middleware.Logger)
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("welcome"))
 	})
+
+	r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+		var requestType = r.Header.Get("X-Amz-Target")
+
+		fmt.Println(requestType)
+
+		if requestType == "AWSCognitoIdentityProviderService.CreateUserPool" {
+			var	up cognito.UserPool
+			json.NewDecoder(r.Body).Decode(&up)
+			cognito.CreateUserPool(session, up)
+		} else if requestType == "AWSCognitoIdentityProviderService.DeleteUserPool" {
+			var	up cognito.UserPool
+			json.NewDecoder(r.Body).Decode(&up)
+			cognito.DeleteUserPool(session, up)
+		} else if requestType == "AWSCognitoIdentityProviderService.AdminCreateUser" {
+			var	u cognito.User
+			json.NewDecoder(r.Body).Decode(&u)
+			cognito.CreateUser(session, u)
+	} else if requestType == "AWSCognitoIdentityProviderService.AdminDeleteUser" {
+		var	u cognito.User
+		json.NewDecoder(r.Body).Decode(&u)
+		cognito.DeleteUser(session, u)
+	}
+
+
+	w.Write([]byte("Success"))
+	})
+
+
 	http.ListenAndServe(":3000", r)
 }
 
-func setupCassandra() {
+func setupCassandra() *gocql.Session {
 	setupCassandraKeyspace()
-	setupCassandraTables()
+
+	// Create a new session to use through app
+	cluster := gocql.NewCluster(cassandraAddress)
+	cluster.Consistency = gocql.Quorum
+	cluster.Keyspace = cassandraKeyspace
+	session, _ := cluster.CreateSession()
+
+	// create needed tables
+	setupCassandraTables(session)
+
+	return session
 }
 
 func setupCassandraKeyspace() {
@@ -44,17 +87,12 @@ func setupCassandraKeyspace() {
 	fmt.Println("Created Keyspace " + cassandraKeyspace)
 }
 
-func setupCassandraTables() {
-	cluster := gocql.NewCluster(cassandraAddress)
-	cluster.Keyspace = cassandraKeyspace
-	cluster.Consistency = gocql.Quorum
-	session, _ := cluster.CreateSession()
-	defer session.Close()
-
+func setupCassandraTables(session *gocql.Session) {
 	if err := session.Query(`CREATE TABLE IF NOT EXISTS user_pool
   (
     pool_id TEXT,
-    PRIMARY KEY (pool_id)
+		pool_name TEXT,
+    PRIMARY KEY (pool_name)
   );`).Exec(); err != nil {
 		log.Fatal(err)
 	}
